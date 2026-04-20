@@ -2,296 +2,502 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>ChiTiêuViz • Quản lý chi tiêu</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chi Tiêu Cá Nhân</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
-    
-    body { 
-      font-family: 'Inter', system-ui, sans-serif; 
-      background: #0a0a0f;
-      color: #e2e8f0;
-    }
-    .logo { font-family: 'Space Grotesk', sans-serif; }
-    .glass { background: rgba(255,255,255,0.08); backdrop-filter: blur(16px); }
-    .chart-container { height: 240px; }
-    @media (min-width: 640px) { .chart-container { height: 300px; } }
+    body { font-family:'Segoe UI',system-ui,sans-serif; }
+    .card { transition:all 0.3s ease; }
+    .chart-container { position:relative; height:260px; }
+    @media(min-width:1024px){ .chart-container{ height:340px; } }
+    .stat-value { font-size:1.5rem; line-height:1.25; }
+    #toast { transition:opacity 0.5s; }
   </style>
 </head>
-<body class="min-h-screen pb-20">
+<body class="bg-gray-50 text-gray-800 min-h-screen pb-24">
 
-<div class="max-w-7xl mx-auto p-4 sm:p-6">
-
-  <!-- Header -->
-  <div class="flex justify-between items-center mb-8">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-emerald-400 rounded-2xl flex items-center justify-center">
-        <i class="fa-solid fa-chart-pie text-black text-2xl"></i>
-      </div>
-      <div>
-        <h1 class="logo text-3xl font-semibold tracking-tight">ChiTiêuViz</h1>
-        <p class="text-xs text-gray-400">Quản lý chi tiêu thông minh</p>
-      </div>
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+  <div class="bg-white rounded-3xl shadow-xl p-10 w-full max-w-sm text-center">
+    <div class="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+      <i class="fa-solid fa-wallet text-indigo-600 text-2xl"></i>
     </div>
-    <button onclick="showAddModal()" 
-            class="bg-gradient-to-r from-cyan-400 to-emerald-400 text-black font-semibold px-6 py-3 rounded-3xl flex items-center gap-2">
-      <i class="fa-solid fa-plus"></i>
-      <span>Thêm thu/chi</span>
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">Chi Tiêu Cá Nhân</h1>
+    <p class="text-gray-500 text-sm mb-8">Đăng nhập để quản lý tài chính của bạn</p>
+    <button onclick="loginWithGoogle()"
+      class="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-200
+             hover:border-indigo-400 hover:bg-indigo-50 rounded-2xl py-4 font-semibold text-gray-700
+             transition-all shadow-sm">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5">
+      Đăng nhập với Google
+    </button>
+    <p class="text-xs text-gray-400 mt-6">Dữ liệu được lưu riêng tư trên Firebase của bạn</p>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="appScreen" class="hidden max-w-7xl mx-auto p-4 sm:p-6">
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-2xl sm:text-3xl font-bold text-indigo-700 flex items-center gap-3">
+        <i class="fa-solid fa-wallet"></i> Chi Tiêu Cá Nhân
+      </h1>
+      <p class="text-gray-500 text-sm mt-1">Dữ liệu cá nhân của bạn • Firebase Cloud</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-4 py-2">
+        <img id="userPhoto" src="" class="w-7 h-7 rounded-full" alt="">
+        <span id="userName" class="text-sm font-medium text-gray-700 max-w-[120px] truncate"></span>
+      </div>
+      <button onclick="logoutUser()"
+        class="bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200
+               text-gray-500 hover:text-red-500 px-4 py-3 rounded-2xl text-sm transition-all">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter & Sort -->
+  <div class="flex flex-wrap gap-3 mb-6">
+    <select id="filterMonth"
+      class="bg-white border border-gray-300 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-500">
+      <option value="">Tất cả thời gian</option>
+      <option value="2026-04" selected>Tháng 4/2026</option>
+      <option value="2026-03">Tháng 3/2026</option>
+      <option value="2026-02">Tháng 2/2026</option>
+      <option value="2026-01">Tháng 1/2026</option>
+    </select>
+    <button onclick="setSortField('date')"
+      class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 px-4 py-3 rounded-2xl text-sm flex items-center gap-2 transition-all">
+      <i class="fa-solid fa-calendar-days text-indigo-500"></i> Ngày
+    </button>
+    <button onclick="setSortField('amount')"
+      class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 px-4 py-3 rounded-2xl text-sm flex items-center gap-2 transition-all">
+      <i class="fa-solid fa-arrow-up-wide-short text-indigo-500"></i> Số tiền
+    </button>
+    <button onclick="setSortField('category')"
+      class="bg-white border border-gray-300 hover:bg-indigo-50 hover:border-indigo-400 px-4 py-3 rounded-2xl text-sm flex items-center gap-2 transition-all">
+      <i class="fa-solid fa-tag text-indigo-500"></i> Danh mục
     </button>
   </div>
 
-  <!-- Stats -->
+  <!-- KPI Cards -->
   <div class="grid grid-cols-2 gap-4 mb-8">
-    <div class="glass rounded-3xl p-6">
-      <p class="text-emerald-400 text-sm">TỔNG THU</p>
-      <p id="totalIncome" class="text-3xl font-semibold mt-3">0 ₫</p>
+    <div class="bg-white rounded-3xl p-5 card shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500">Tổng thu</p>
+      <p id="totalIncome" class="stat-value font-semibold text-emerald-600 mt-2">0 đ</p>
     </div>
-    <div class="glass rounded-3xl p-6">
-      <p class="text-rose-400 text-sm">TỔNG CHI</p>
-      <p id="totalExpense" class="text-3xl font-semibold mt-3">0 ₫</p>
+    <div class="bg-white rounded-3xl p-5 card shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500">Tổng chi</p>
+      <p id="totalExpense" class="stat-value font-semibold text-rose-600 mt-2">0 đ</p>
+    </div>
+    <div class="bg-white rounded-3xl p-5 card shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500">Số dư (Thu - Chi)</p>
+      <p id="netBalance" class="stat-value font-semibold text-indigo-700 mt-2">0 đ</p>
+    </div>
+    <div class="bg-white rounded-3xl p-5 card shadow-sm border border-gray-100">
+      <p class="text-xs text-gray-500">Số giao dịch</p>
+      <p id="transactionCount" class="stat-value font-semibold text-gray-700 mt-2">0</p>
     </div>
   </div>
 
-  <!-- Biểu đồ -->
+  <!-- Charts -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="glass rounded-3xl p-6">
-      <h2 class="font-semibold mb-5">Phân bổ chi tiêu</h2>
+    <div class="bg-white rounded-3xl p-6 card shadow-sm">
+      <h2 class="text-lg font-semibold mb-5 flex items-center gap-2">
+        <i class="fa-solid fa-chart-pie text-indigo-600"></i> Phân bổ chi tiêu
+      </h2>
       <div class="chart-container"><canvas id="pieChart"></canvas></div>
     </div>
-
-    <div class="glass rounded-3xl p-6">
-      <h2 class="font-semibold mb-5">Chi theo danh mục</h2>
+    <div class="bg-white rounded-3xl p-6 card shadow-sm">
+      <h2 class="text-lg font-semibold mb-5 flex items-center gap-2">
+        <i class="fa-solid fa-chart-column text-indigo-600"></i> Chi theo danh mục
+      </h2>
       <div class="chart-container"><canvas id="barChart"></canvas></div>
     </div>
-
-    <div class="glass rounded-3xl p-6 lg:col-span-2">
-      <h2 class="font-semibold mb-5">Xu hướng thu - chi</h2>
-      <div class="chart-container" style="height: 280px;"><canvas id="lineChart"></canvas></div>
+    <div class="bg-white rounded-3xl p-6 card shadow-sm lg:col-span-2">
+      <h2 class="text-lg font-semibold mb-5 flex items-center gap-2">
+        <i class="fa-solid fa-chart-line text-indigo-600"></i> Xu hướng thu - chi
+      </h2>
+      <div class="chart-container" style="height:320px"><canvas id="lineChart"></canvas></div>
     </div>
   </div>
 
-  <!-- Giao dịch gần đây -->
-  <div class="mt-10 glass rounded-3xl p-6">
-    <h2 class="font-semibold mb-6">Giao dịch gần đây</h2>
-    <div id="transactionList" class="space-y-4"></div>
-  </div>
-</div>
-
-<!-- MODAL THÊM THU/CHI -->
-<div id="addModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="glass w-full max-w-md mx-4 rounded-3xl p-6">
-    <h2 class="text-2xl font-semibold mb-6 text-center">Thêm khoản thu / chi</h2>
-    
-    <div class="space-y-6">
-      <div>
-        <label class="text-sm text-gray-400 block mb-2">Loại giao dịch</label>
-        <div class="grid grid-cols-2 gap-3">
-          <button onclick="selectType(this, 'expense')" id="btn-expense"
-                  class="py-4 rounded-2xl border-2 border-rose-500 text-rose-400 font-medium active flex items-center justify-center gap-2">
-            <i class="fa-solid fa-arrow-down"></i> CHI TIÊU
-          </button>
-          <button onclick="selectType(this, 'income')" id="btn-income"
-                  class="py-4 rounded-2xl border-2 border-emerald-500 text-emerald-400 font-medium flex items-center justify-center gap-2">
-            <i class="fa-solid fa-arrow-up"></i> THU NHẬP
-          </button>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="text-sm text-gray-400 block mb-2">Số tiền (₫)</label>
-          <input id="amount" type="text" placeholder="500000" 
-                 class="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3 focus:outline-none">
-        </div>
-        <div>
-          <label class="text-sm text-gray-400 block mb-2">Ngày</label>
-          <input id="date" type="date" value="2026-04-16" 
-                 class="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3">
-        </div>
-      </div>
-
-      <div>
-        <label class="text-sm text-gray-400 block mb-2">Danh mục</label>
-        <select id="category" class="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3"></select>
-      </div>
-
-      <div>
-        <label class="text-sm text-gray-400 block mb-2">Ghi chú</label>
-        <input id="note" type="text" placeholder="Mua cà phê sáng" 
-               class="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-3">
-      </div>
-    </div>
-
-    <div class="flex gap-3 mt-8">
-      <button onclick="hideAddModal()" class="flex-1 py-4 border border-white/30 rounded-3xl font-medium">Hủy</button>
-      <button onclick="addTransaction()" class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-emerald-400 text-black font-semibold rounded-3xl">Lưu</button>
-    </div>
+  <!-- Transaction List -->
+  <div class="mt-10 bg-white rounded-3xl p-6 card shadow-sm">
+    <h2 class="text-lg font-semibold mb-6 flex items-center gap-2">
+      <i class="fa-solid fa-clock-rotate-left"></i> Giao dịch gần đây
+    </h2>
+    <div id="transactionList" class="space-y-3 max-h-[480px] overflow-y-auto pr-1"></div>
   </div>
 </div>
 
-<script>
-// ==================== DỮ LIỆU 30 GIAO DỊCH ====================
-let transactions = [
-  {id:1, date:"2026-04-01", type:"expense", amount:450000, category:"Ăn uống", note:"Ăn trưa cơm tấm"},
-  {id:2, date:"2026-04-02", type:"income", amount:12000000, category:"Lương", note:"Lương tháng 4"},
-  {id:3, date:"2026-04-03", type:"expense", amount:120000, category:"Di chuyển", note:"Xăng xe"},
-  {id:4, date:"2026-04-04", type:"expense", amount:890000, category:"Mua sắm", note:"Quần áo"},
-  {id:5, date:"2026-04-05", type:"expense", amount:350000, category:"Giải trí", note:"Netflix"},
-  {id:6, date:"2026-04-06", type:"expense", amount:650000, category:"Nhà cửa", note:"Tiền điện nước"},
-  // ... (bạn có thể giữ nguyên 30 giao dịch cũ của bạn)
-];
+<!-- FAB -->
+<button onclick="openFAB()"
+  class="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full
+         flex items-center justify-center shadow-lg text-2xl z-40 transition-all hover:scale-110">
+  <i class="fa-solid fa-plus"></i>
+</button>
 
-const expenseCategories = ["Ăn uống", "Di chuyển", "Nhà cửa", "Mua sắm", "Giải trí", "Sức khỏe", "Giáo dục", "Khác"];
-const incomeCategories = ["Lương", "Thưởng", "Tiết kiệm", "Khác"];
+<!-- MODAL THÊM GIAO DỊCH -->
+<div id="fabModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4"
+     onclick="if(event.target===this)closeFAB()">
+  <div class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-lg font-bold text-gray-800">
+        <i class="fa-solid fa-plus-circle text-indigo-600 mr-2"></i>Thêm giao dịch
+      </h3>
+      <button onclick="closeFAB()" class="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <!-- Type toggle -->
+    <div class="flex gap-2 mb-5 bg-gray-100 p-1 rounded-2xl">
+      <button id="btnExpense" onclick="setType('expense')"
+        class="flex-1 py-2 rounded-xl text-sm font-semibold transition-all bg-rose-500 text-white">
+        <i class="fa-solid fa-arrow-trend-down mr-1"></i>Chi tiêu
+      </button>
+      <button id="btnIncome" onclick="setType('income')"
+        class="flex-1 py-2 rounded-xl text-sm font-semibold transition-all text-gray-500 hover:text-gray-700">
+        <i class="fa-solid fa-arrow-trend-up mr-1"></i>Thu nhập
+      </button>
+    </div>
+    <input type="hidden" id="t_type" value="expense">
+    <div class="space-y-4">
+      <div>
+        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Số tiền (đ)</label>
+        <input id="t_amount" type="number" min="1000" step="1000" placeholder="vd: 150000"
+          class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-indigo-400 text-lg font-semibold">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Danh mục</label>
+        <select id="t_category"
+          class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-indigo-400">
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Ghi chú</label>
+        <input id="t_note" type="text" placeholder="vd: Ăn trưa cơm tấm"
+          class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-indigo-400">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Ngày</label>
+        <input id="t_date" type="date"
+          class="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-indigo-400">
+      </div>
+    </div>
+    <button id="btnAdd" onclick="addTransaction()"
+      class="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-2xl
+             flex items-center justify-center gap-2 transition-all">
+      <i class="fa-solid fa-plus mr-2"></i>Thêm giao dịch
+    </button>
+  </div>
+</div>
 
+<!-- ================================================================
+     FIREBASE + APP LOGIC
+================================================================ -->
+<script type="module">
+import { initializeApp }     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, addDoc, getDocs, deleteDoc, query, orderBy, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ============================================================
+// BƯỚC 1: PASTE FIREBASE CONFIG CỦA BẠN VÀO ĐÂY
+// Lấy từ: Firebase Console > Project Settings > Your Apps > SDK setup
+// ============================================================
+const firebaseConfig = {
+  apiKey:            "AIzaSyBRJduTlrUaU4h8OUYTGOcMPeOCZitACQE",
+  authDomain:        "quanlychitieu-f1eb6.firebaseapp.com",
+  projectId:         "quanlychitieu-f1eb6",
+  storageBucket:     "quanlychitieu-f1eb6.firebasestorage.app",
+  messagingSenderId: "601182721049",
+  appId:             "1:601182721049:web:52a1d86511cf16201c8688"
+};
+// ============================================================
+
+const app  = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// ── STATE ─────────────────────────────────────────────────────
+let currentUser  = null;
+let transactions = [];
 let pieChart, barChart, lineChart;
+let sortField = 'date';
+let sortDir   = -1;   // -1 = desc, 1 = asc
 
-// ==================== MODAL ====================
-let currentType = 'expense';
+const categoryColors = {
+  "Ăn uống":"#f59e0b","Di chuyển":"#3b82f6","Nhà cửa":"#8b5cf6",
+  "Mua sắm":"#ec4899","Giải trí":"#14b8a6","Sức khỏe":"#ef4444",
+  "Giáo dục":"#6366f1","Lương":"#10b981","Thưởng":"#22c55e","Tiết kiệm":"#eab308"
+};
+const categories = Object.keys(categoryColors);
 
-function showAddModal() {
-  document.getElementById('addModal').classList.remove('hidden');
-  document.getElementById('addModal').classList.add('flex');
-  selectType(document.getElementById('btn-expense'), 'expense');
+// ── HELPERS ───────────────────────────────────────────────────
+function fmt(n) { return (+n).toLocaleString('vi-VN') + ' đ'; }
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function setText(id, val) { const el=document.getElementById(id); if(el) el.textContent=val; }
+
+function showToast(msg, type="success") {
+  let t = document.getElementById("toast");
+  if (!t) { t=document.createElement("div"); t.id="toast"; document.body.appendChild(t); }
+  t.className = `fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl
+    text-sm font-medium shadow-lg ${type==="success"?"bg-emerald-600":"bg-rose-600"} text-white`;
+  t.textContent = msg; t.style.opacity="1";
+  setTimeout(()=>{ t.style.opacity="0"; }, 3000);
 }
 
-function hideAddModal() {
-  document.getElementById('addModal').classList.add('hidden');
-  document.getElementById('addModal').classList.remove('flex');
+// ── AUTH ──────────────────────────────────────────────────────
+window.loginWithGoogle = async () => {
+  try {
+    await signInWithPopup(auth, new GoogleAuthProvider());
+  } catch(e) { showToast("Đăng nhập thất bại: "+e.message,"error"); }
+};
+
+window.logoutUser = async () => {
+  await signOut(auth);
+  transactions = [];
+};
+
+onAuthStateChanged(auth, async user => {
+  currentUser = user;
+  if (user) {
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("appScreen").classList.remove("hidden");
+    setText("userName", user.displayName || user.email);
+    document.getElementById("userPhoto").src =
+      user.photoURL || "https://ui-avatars.com/api/?name="+encodeURIComponent(user.displayName||"U");
+    await loadTransactions();
+    updateAllCharts();
+  } else {
+    document.getElementById("loginScreen").classList.remove("hidden");
+    document.getElementById("appScreen").classList.add("hidden");
+  }
+});
+
+// ── FIRESTORE ─────────────────────────────────────────────────
+async function loadTransactions() {
+  const q = query(
+    collection(db, "users", currentUser.uid, "transactions"),
+    orderBy("date","desc")
+  );
+  const snap = await getDocs(q);
+  transactions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-function selectType(btn, type) {
-  currentType = type;
-  document.getElementById('btn-expense').classList.remove('active', 'border-rose-500');
-  document.getElementById('btn-income').classList.remove('active', 'border-emerald-500');
-  btn.classList.add('active');
+window.addTransaction = async () => {
+  const date     = document.getElementById("t_date").value;
+  const type     = document.getElementById("t_type").value;
+  const amount   = parseFloat(document.getElementById("t_amount").value);
+  const category = document.getElementById("t_category").value;
+  const note     = document.getElementById("t_note").value.trim();
 
-  const select = document.getElementById('category');
-  select.innerHTML = '';
-  const cats = type === 'expense' ? expenseCategories : incomeCategories;
-  cats.forEach(cat => {
-    const opt = document.createElement('option');
-    opt.value = cat;
-    opt.textContent = cat;
-    select.appendChild(opt);
-  });
-}
+  if (!date||!amount||!category||!note) {
+    showToast("Vui lòng điền đầy đủ thông tin!","error"); return;
+  }
+  if (isNaN(amount)||amount<=0) {
+    showToast("Số tiền không hợp lệ!","error"); return;
+  }
 
-function addTransaction() {
-  const amount = parseInt(document.getElementById('amount').value.replace(/[^0-9]/g,'')) || 0;
-  if (amount <= 0) return alert("Vui lòng nhập số tiền!");
+  const btn = document.getElementById("btnAdd");
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang lưu...';
 
-  const newTrans = {
-    id: Date.now(),
-    date: document.getElementById('date').value,
-    type: currentType,
-    amount: amount,
-    category: document.getElementById('category').value,
-    note: document.getElementById('note').value || "Giao dịch mới"
-  };
+  try {
+    const ref = await addDoc(
+      collection(db,"users",currentUser.uid,"transactions"),
+      { date, type, amount, category, note, createdAt: serverTimestamp() }
+    );
+    transactions.unshift({ id:ref.id, date, type, amount, category, note });
+    closeFAB();
+    updateAllCharts();
+    showToast("Đã thêm giao dịch!","success");
+  } catch(e) {
+    showToast("Lỗi: "+e.message,"error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-plus mr-2"></i>Thêm giao dịch';
+  }
+};
 
-  transactions.unshift(newTrans);
-  hideAddModal();
+window.deleteTransaction = async (id) => {
+  if (!confirm("Xóa giao dịch này?")) return;
+  await deleteDoc(doc(db,"users",currentUser.uid,"transactions",id));
+  transactions = transactions.filter(t=>t.id!==id);
   updateAllCharts();
+  showToast("Đã xóa giao dịch","success");
+};
 
-  // Toast
-  const toast = document.createElement('div');
-  toast.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 bg-emerald-500 text-black px-8 py-3 rounded-3xl font-medium shadow-2xl';
-  toast.textContent = '✅ Đã thêm giao dịch!';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2000);
+// ── CHARTS & UI ───────────────────────────────────────────────
+function getFiltered() {
+  const m = document.getElementById("filterMonth")?.value || "";
+  return m ? transactions.filter(t => t.date?.startsWith(m)) : [...transactions];
 }
 
-// ==================== CẬP NHẬT TẤT CẢ ====================
-function updateAllCharts() {
-  const filtered = transactions; // Có thể thêm filter sau
-
-  // Tính tổng thu chi
-  let totalIncome = 0, totalExpense = 0;
-  filtered.forEach(t => {
-    if (t.type === "income") totalIncome += t.amount;
-    else totalExpense += t.amount;
-  });
-
-  document.getElementById("totalIncome").textContent = totalIncome.toLocaleString('vi-VN') + " ₫";
-  document.getElementById("totalExpense").textContent = totalExpense.toLocaleString('vi-VN') + " ₫";
-
-  // Phân bổ chi tiêu (Pie)
-  const categoryExpense = {};
-  filtered.filter(t => t.type === "expense").forEach(t => {
-    categoryExpense[t.category] = (categoryExpense[t.category] || 0) + t.amount;
-  });
-
-  if (pieChart) pieChart.destroy();
-  pieChart = new Chart(document.getElementById("pieChart"), {
-    type: 'doughnut',
-    data: {
-      labels: Object.keys(categoryExpense),
-      datasets: [{ 
-        data: Object.values(categoryExpense),
-        backgroundColor: ['#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6']
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }}
-  });
-
-  // Bar Chart
-  if (barChart) barChart.destroy();
-  barChart = new Chart(document.getElementById("barChart"), {
-    type: 'bar',
-    data: {
-      labels: Object.keys(categoryExpense),
-      datasets: [{ label: 'Chi tiêu', data: Object.values(categoryExpense), backgroundColor: "#6366f1", borderRadius: 8 }]
-    },
-    options: { responsive: true, maintainAspectRatio: false }
-  });
-
-  // Line Chart (đơn giản)
-  if (lineChart) lineChart.destroy();
-  lineChart = new Chart(document.getElementById("lineChart"), {
-    type: 'line',
-    data: {
-      labels: ['01/04', '05/04', '10/04', '15/04', '20/04', '25/04'],
-      datasets: [
-        { label: 'Thu', data: [12000000, 800000, 0, 500000, 0, 300000], borderColor: "#10b981", tension: 0.4 },
-        { label: 'Chi', data: [450000, 120000, 890000, 350000, 650000, 420000], borderColor: "#ef4444", tension: 0.4 }
-      ]
-    },
-    options: { responsive: true, maintainAspectRatio: false }
-  });
-
-  // Render danh sách giao dịch
-  renderTransactionList(filtered);
+function calculateSummary(filtered) {
+  let inc=0, exp=0;
+  filtered.forEach(t => t.type==="income" ? inc+=+t.amount : exp+=+t.amount);
+  const net = inc-exp;
+  setText("totalIncome",   fmt(inc));
+  setText("totalExpense",  fmt(exp));
+  setText("transactionCount", filtered.length);
+  const el = document.getElementById("netBalance");
+  if (el) {
+    el.textContent = (net>=0?"":"-")+fmt(Math.abs(net));
+    el.className   = `stat-value font-semibold mt-2 ${net>=0?"text-indigo-700":"text-rose-600"}`;
+  }
 }
 
 function renderTransactionList(filtered) {
   const container = document.getElementById("transactionList");
+  if (!container) return;
   container.innerHTML = "";
-
-  filtered.slice(0, 10).forEach(t => {
-    const isIncome = t.type === "income";
-    const div = document.createElement("div");
-    div.className = `flex items-center justify-between p-4 rounded-2xl ${isIncome ? 'bg-emerald-900/30' : 'bg-rose-900/30'}`;
+  if (!filtered.length) {
+    container.innerHTML = `<div class="text-center py-10 text-gray-400">
+      <i class="fa-solid fa-inbox text-4xl mb-3 block"></i>
+      <p>Chưa có giao dịch nào. Nhấn + để thêm!</p></div>`;
+    return;
+  }
+  const sorted = [...filtered].sort((a,b) => {
+    let va=a[sortField], vb=b[sortField];
+    if (sortField==='amount'){va=+va;vb=+vb;}
+    return va<vb ? sortDir : va>vb ? -sortDir : 0;
+  });
+  sorted.forEach(t => {
+    const isInc = t.type==="income";
+    const div   = document.createElement("div");
+    div.className = `flex items-center justify-between p-4 rounded-2xl border transition-all
+      ${isInc?"border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+              :"border-rose-200 bg-rose-50 hover:bg-rose-100"}`;
     div.innerHTML = `
-      <div>
-        <div class="font-medium">${t.note}</div>
-        <div class="text-xs text-gray-400">${t.date} • ${t.category}</div>
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0
+          ${isInc?"bg-emerald-100 text-emerald-600":"bg-rose-100 text-rose-600"}">
+          <i class="fa-solid ${isInc?"fa-arrow-trend-up":"fa-arrow-trend-down"}"></i>
+        </div>
+        <div class="min-w-0">
+          <p class="font-medium text-gray-800 truncate">${esc(t.note)}</p>
+          <p class="text-xs text-gray-500">${t.date} • ${t.category}</p>
+        </div>
       </div>
-      <div class="font-semibold ${isIncome ? 'text-emerald-400' : 'text-rose-400'}">
-        ${isIncome ? '+' : '-'}${t.amount.toLocaleString('vi-VN')} ₫
-      </div>
-    `;
+      <div class="flex items-center gap-3 flex-shrink-0">
+        <p class="font-semibold text-base ${isInc?"text-emerald-600":"text-rose-600"}">
+          ${isInc?"+":"-"} ${(+t.amount).toLocaleString('vi-VN')} đ
+        </p>
+        <button onclick="deleteTransaction('${t.id}')"
+          class="w-8 h-8 rounded-xl bg-white border border-gray-200 text-gray-400
+                 hover:text-rose-500 hover:border-rose-300 flex items-center justify-center text-xs transition-all">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>`;
     container.appendChild(div);
   });
 }
 
-// Khởi chạy khi load trang
-window.onload = () => {
+window.updateAllCharts = function() {
+  const filtered = getFiltered();
+  calculateSummary(filtered);
+  renderTransactionList(filtered);
+
+  const catExp = {};
+  filtered.filter(t=>t.type==="expense").forEach(t=>{
+    catExp[t.category]=(catExp[t.category]||0)+(+t.amount);
+  });
+  const catKeys = Object.keys(catExp);
+  const catVals = Object.values(catExp);
+  const catClrs = catKeys.map(c=>categoryColors[c]||"#64748b");
+
+  if (pieChart) { pieChart.destroy(); pieChart=null; }
+  if (catKeys.length) {
+    pieChart = new Chart(document.getElementById("pieChart"),{
+      type:"doughnut",
+      data:{ labels:catKeys, datasets:[{ data:catVals, backgroundColor:catClrs, borderWidth:5, borderColor:"#fff" }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:"bottom", labels:{ font:{size:11} } } } }
+    });
+  }
+
+  if (barChart) { barChart.destroy(); barChart=null; }
+  if (catKeys.length) {
+    barChart = new Chart(document.getElementById("barChart"),{
+      type:"bar",
+      data:{ labels:catKeys, datasets:[{ label:"Chi tiêu (đ)", data:catVals,
+        backgroundColor:catClrs, borderRadius:10 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{ y:{ ticks:{ callback:v=>(v/1e6).toFixed(1)+"tr" } } } }
+    });
+  }
+
+  const dates = [...new Set(filtered.map(t=>t.date))].sort();
+  const incD  = dates.map(d=>filtered.filter(t=>t.date===d&&t.type==="income").reduce((s,t)=>s+(+t.amount),0));
+  const expD  = dates.map(d=>filtered.filter(t=>t.date===d&&t.type==="expense").reduce((s,t)=>s+(+t.amount),0));
+  if (lineChart) { lineChart.destroy(); lineChart=null; }
+  lineChart = new Chart(document.getElementById("lineChart"),{
+    type:"line",
+    data:{ labels:dates, datasets:[
+      { label:"Thu nhập", data:incD, borderColor:"#10b981", backgroundColor:"rgba(16,185,129,.08)",
+        fill:true, tension:0.4, borderWidth:3, pointRadius:4 },
+      { label:"Chi tiêu", data:expD, borderColor:"#ef4444", backgroundColor:"rgba(239,68,68,.08)",
+        fill:true, tension:0.4, borderWidth:3, pointRadius:4 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      scales:{ y:{ ticks:{ callback:v=>(v/1e6).toFixed(1)+"tr" } } },
+      plugins:{ legend:{ position:"top" } } }
+  });
+};
+
+// ── FAB & MODAL ───────────────────────────────────────────────
+window.openFAB = () => {
+  document.getElementById("fabModal").classList.remove("hidden");
+  document.getElementById("t_date").value = new Date().toISOString().split('T')[0];
+};
+window.closeFAB = () => {
+  document.getElementById("fabModal").classList.add("hidden");
+  document.getElementById("t_amount").value = "";
+  document.getElementById("t_note").value   = "";
+};
+
+window.setSortField = field => {
+  if (sortField===field) sortDir*=-1; else { sortField=field; sortDir=-1; }
   updateAllCharts();
 };
+
+// ── INIT ──────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  // Fill category select
+  const sel = document.getElementById("t_category");
+  if (sel) categories.forEach(c => {
+    const o = document.createElement("option");
+    o.value = o.textContent = c; sel.appendChild(o);
+  });
+  document.getElementById("filterMonth")
+    ?.addEventListener("change", updateAllCharts);
+});
 </script>
+
+<!-- setType: non-module so onclick works -->
+<script>
+function setType(type) {
+  document.getElementById("t_type").value = type;
+  const e=document.getElementById("btnExpense"), i=document.getElementById("btnIncome");
+  if (type==="expense") {
+    e.className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all bg-rose-500 text-white";
+    i.className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all text-gray-500 hover:text-gray-700";
+  } else {
+    i.className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all bg-emerald-500 text-white";
+    e.className="flex-1 py-2 rounded-xl text-sm font-semibold transition-all text-gray-500 hover:text-gray-700";
+  }
+}
+</script>
+
 </body>
 </html>
